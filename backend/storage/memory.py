@@ -4,6 +4,7 @@ TODO: Replace with actual database integration
 """
 
 from datetime import datetime
+from enum import Enum
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
 
@@ -137,6 +138,8 @@ class InMemoryStorage:
         app = self._apps[app_id]
         for key, value in data.items():
             if value is not None:
+                if isinstance(value, Enum):
+                    value = value.value
                 app[key] = value
         app["updated_at"] = datetime.utcnow()
         return app

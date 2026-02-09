@@ -3,7 +3,7 @@ Agents Router - CRUD operations for AI Agents and Agent Library
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 
 from schemas.agents import (
     AgentCreate,
@@ -11,19 +11,24 @@ from schemas.agents import (
     AgentResponse,
     AgentListResponse,
     AgentConfigFull,
+    AgentLibraryListResponse,
 )
 from storage import storage
+from errors import AppNotFoundError
 
 router = APIRouter()
 
 
 # ==================== Agent Library ====================
 
-@router.get("/library", response_model=List[AgentResponse])
+@router.get("/library", response_model=AgentLibraryListResponse)
 async def list_agent_library(
     type_category: Optional[str] = Query(None, description="Filter by type category"),
     category: Optional[str] = Query(None, description="Filter by business category"),
+    search: Optional[str] = Query(None, description="Search in name and description"),
     is_existing_agent: Optional[bool] = Query(None, description="Filter by existing agent flag"),
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Max items to return"),
 ):
     """
     List all agents in the agent library.
@@ -37,10 +42,27 @@ async def list_agent_library(
         agents = [a for a in agents if a.get("type_category") == type_category]
     if category:
         agents = [a for a in agents if a.get("category") == category]
+    if search:
+        term = search.strip().lower()
+        if term:
+            def matches_search(agent):
+                name = (agent.get("name") or "").lower()
+                description = (agent.get("description") or "").lower()
+                return term in name or term in description
+
+            agents = [a for a in agents if matches_search(a)]
     if is_existing_agent is not None:
         agents = [a for a in agents if a.get("is_existing_agent") == is_existing_agent]
-    
-    return [AgentResponse(**a) for a in agents]
+
+    total_count = len(agents)
+    items = agents[skip:skip + limit]
+    has_more = skip + limit < total_count
+
+    return AgentLibraryListResponse(
+        total_count=total_count,
+        has_more=has_more,
+        items=[AgentResponse(**a) for a in items],
+    )
 
 
 @router.get("/library/{agent_id}", response_model=AgentResponse)
@@ -50,7 +72,7 @@ async def get_library_agent(agent_id: str):
     """
     agent = storage.get_library_agent(agent_id)
     if not agent:
-        raise HTTPException(status_code=404, detail=f"Library agent {agent_id} not found")
+        raise AppNotFoundError(f"Library agent {agent_id} not found")
     return AgentResponse(**agent)
 
 
@@ -86,7 +108,7 @@ async def get_agent(agent_id: str):
     """
     agent = storage.get_agent(agent_id)
     if not agent:
-        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+        raise AppNotFoundError(f"Agent {agent_id} not found")
     return AgentResponse(**agent)
 
 
@@ -97,7 +119,7 @@ async def update_agent(agent_id: str, agent_data: AgentUpdate):
     """
     agent = storage.update_agent(agent_id, agent_data.model_dump(exclude_unset=True))
     if not agent:
-        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+        raise AppNotFoundError(f"Agent {agent_id} not found")
     return AgentResponse(**agent)
 
 
@@ -107,7 +129,7 @@ async def delete_agent(agent_id: str):
     Delete an agent.
     """
     if not storage.delete_agent(agent_id):
-        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+        raise AppNotFoundError(f"Agent {agent_id} not found")
     return None
 
 
@@ -122,7 +144,7 @@ async def get_agent_config(agent_id: str):
     """
     agent = storage.get_agent(agent_id)
     if not agent:
-        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+        raise AppNotFoundError(f"Agent {agent_id} not found")
     
     # Return config if exists, otherwise return default
     config = agent.get("config")
@@ -163,7 +185,7 @@ async def update_agent_config(agent_id: str, config: AgentConfigFull):
     """
     agent = storage.get_agent(agent_id)
     if not agent:
-        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+        raise AppNotFoundError(f"Agent {agent_id} not found")
     
     # Update agent with new config
     storage.update_agent(agent_id, {"config": config.model_dump()})
@@ -182,7 +204,7 @@ async def validate_agent_config(agent_id: str):
     """
     agent = storage.get_agent(agent_id)
     if not agent:
-        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+        raise AppNotFoundError(f"Agent {agent_id} not found")
     
     # TODO: Implement validation
     return {

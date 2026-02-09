@@ -23,6 +23,9 @@ from .agents import (
     ToolConfig,
     MemoryConfig,
     AgentConfigFull,
+    ValidationSeverity,
+    ValidationError,
+    AgentConfigValidationResult,
 )
 from .orchestration import (
     OrchestrationNode,
@@ -58,6 +61,9 @@ __all__ = [
     "ToolConfig",
     "MemoryConfig",
     "AgentConfigFull",
+    "ValidationSeverity",
+    "ValidationError",
+    "AgentConfigValidationResult",
     # Orchestration
     "OrchestrationNode",
     "OrchestrationEdge",

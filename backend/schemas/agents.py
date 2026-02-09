@@ -136,6 +136,23 @@ class AgentConfigFull(BaseModel):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
 
 
+class ValidationSeverity(str, Enum):
+    ERROR = "error"
+    WARNING = "warning"
+
+
+class ValidationError(BaseModel):
+    field: str = Field(..., description="Field path that failed validation")
+    message: str = Field(..., description="Human-readable error message")
+    severity: ValidationSeverity = Field(..., description="Severity of this issue")
+
+
+class AgentConfigValidationResult(BaseModel):
+    valid: bool = Field(..., description="Whether the config is valid")
+    errors: List[ValidationError] = Field(default_factory=list, description="Validation errors")
+    warnings: List[str] = Field(default_factory=list, description="Validation warnings")
+
+
 class AgentCreate(BaseModel):
     """Request schema for creating a new agent"""
     name: str = Field(..., min_length=1, max_length=100, description="Agent name")
@@ -216,6 +233,13 @@ class AgentResponse(BaseModel):
                 "updated_at": "2024-01-20T14:45:00Z"
             }
         }
+
+
+class AgentLibraryListResponse(BaseModel):
+    """Response schema for listing agents in the library"""
+    total_count: int = Field(..., description="Total count after filters")
+    has_more: bool = Field(..., description="Whether more items are available")
+    items: List[AgentResponse] = Field(..., description="List of agents")
 
 
 class AgentListResponse(BaseModel):
